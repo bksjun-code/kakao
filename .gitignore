@@ -1,0 +1,10 @@
+backend/venv/
+backend/toktoki.db
+backend/malbanggu.db
+backend/uploads/
+backend/backend_alice.json
+__pycache__/
+*.pyc
+
+frontend/node_modules/
+frontend/dist/

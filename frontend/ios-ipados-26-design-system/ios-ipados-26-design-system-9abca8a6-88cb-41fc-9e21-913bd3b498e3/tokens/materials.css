@@ -1,0 +1,46 @@
+/* iOS / iPadOS 26 — Materials, vibrancy & Liquid Glass
+   iOS surfaces are translucent: a blurred backdrop + a tint overlay.
+   Use these recipes on bars, sheets, menus, popovers and Liquid Glass buttons. */
+
+:root {
+  /* Backdrop blur radii by material thickness */
+  --blur-ultra-thin: 14px;
+  --blur-thin: 20px;
+  --blur-regular: 30px;
+  --blur-thick: 50px;
+  --blur-chrome: 18px;   /* nav/tab bar chrome */
+
+  /* Liquid Glass (frosted, refractive control surfaces) */
+  --glass-frost: 7px;
+  --glass-frost-medium: 12px;
+  --glass-frost-large: 14px;
+  --glass-tint-light: rgba(255,255,255,0.6);
+  --glass-tint-dark: rgba(40,40,40,0.5);
+  --glass-stroke-light: rgba(255,255,255,0.5);
+  --glass-stroke-dark: rgba(255,255,255,0.12);
+}
+
+/* Material recipes (translucent fills over a blurred backdrop) */
+.material-ultra-thin { background: rgba(255,255,255,0.44); -webkit-backdrop-filter: blur(var(--blur-ultra-thin)) saturate(1.8); backdrop-filter: blur(var(--blur-ultra-thin)) saturate(1.8); }
+.material-thin       { background: rgba(255,255,255,0.6);  -webkit-backdrop-filter: blur(var(--blur-thin)) saturate(1.8);  backdrop-filter: blur(var(--blur-thin)) saturate(1.8); }
+.material-regular    { background: rgba(248,248,248,0.72); -webkit-backdrop-filter: blur(var(--blur-regular)) saturate(1.8); backdrop-filter: blur(var(--blur-regular)) saturate(1.8); }
+.material-thick      { background: rgba(245,245,245,0.85); -webkit-backdrop-filter: blur(var(--blur-thick)) saturate(1.8); backdrop-filter: blur(var(--blur-thick)) saturate(1.8); }
+.material-chrome     { background: rgba(249,249,249,0.82); -webkit-backdrop-filter: blur(var(--blur-chrome)) saturate(1.6); backdrop-filter: blur(var(--blur-chrome)) saturate(1.6); }
+
+.dark .material-ultra-thin, [data-theme="dark"] .material-ultra-thin { background: rgba(37,37,37,0.55); }
+.dark .material-thin,       [data-theme="dark"] .material-thin       { background: rgba(37,37,37,0.66); }
+.dark .material-regular,    [data-theme="dark"] .material-regular    { background: rgba(30,30,30,0.78); }
+.dark .material-thick,      [data-theme="dark"] .material-thick      { background: rgba(20,20,20,0.88); }
+.dark .material-chrome,     [data-theme="dark"] .material-chrome     { background: rgba(22,22,22,0.84); }
+
+/* Liquid Glass control surface */
+.liquid-glass {
+  background: var(--glass-tint-light);
+  -webkit-backdrop-filter: blur(var(--glass-frost-medium)) saturate(1.6) brightness(1.04);
+  backdrop-filter: blur(var(--glass-frost-medium)) saturate(1.6) brightness(1.04);
+  box-shadow: inset 0 0.5px 0.5px var(--glass-stroke-light), 0 2px 10px rgba(0,0,0,0.10);
+}
+.dark .liquid-glass, [data-theme="dark"] .liquid-glass {
+  background: var(--glass-tint-dark);
+  box-shadow: inset 0 0.5px 0.5px var(--glass-stroke-dark), 0 2px 10px rgba(0,0,0,0.3);
+}

@@ -1,0 +1,66 @@
+/* iOS / iPadOS 26 — Spacing, radii, shadows & semantic aliases
+   Apple's layout grid is an 8pt-derived system with common half-steps. */
+
+:root {
+  /* Spacing scale (pt == px @1x) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 16px;   /* default screen margin (iPhone) */
+  --space-6: 20px;   /* default screen margin (iPad / grouped insets) */
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 44px;   /* minimum hit target */
+
+  /* Corner radii (continuous-corner feel) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;   /* standard control / small card */
+  --radius-lg: 14px;   /* grouped list container */
+  --radius-xl: 20px;
+  --radius-2xl: 26px;
+  --radius-capsule: 999px;   /* Liquid Glass buttons, pills, switches */
+  --radius-sheet-iphone-top: 34px;
+  --radius-sheet-iphone-bottom: 58px;
+  --radius-sheet-ipad: 38px;
+
+  /* Control heights */
+  --control-height-sm: 28px;
+  --control-height-md: 34px;
+  --control-height-lg: 44px;   /* standard tappable row / button */
+  --control-height-xl: 50px;
+
+  /* Hairline border */
+  --hairline: 0.5px;
+
+  /* Elevation — iOS uses soft, low-spread ambient shadows */
+  --shadow-sheet: 0 0 1px rgba(0,0,0,0.04), 0 12px 34px rgba(0,0,0,0.18);
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.08);
+  --shadow-popover: 0 0 0.5px rgba(0,0,0,0.18), 0 10px 40px rgba(0,0,0,0.22);
+  --shadow-floating-tab: 0 1px 12px rgba(0,0,0,0.08);
+  --shadow-control-knob: 0 3px 8px rgba(0,0,0,0.15), 0 1px 1px rgba(0,0,0,0.16);
+
+  /* ---- Semantic aliases (point friendly names at the Figma tokens) ---- */
+  --tint: var(--accents-blue);                 /* system tint / interactive */
+  --tint-destructive: var(--accents-red);
+
+  --text-primary: var(--labels-primary);
+  --text-secondary: var(--labels-secondary);
+  --text-tertiary: var(--labels-tertiary);
+  --text-quaternary: var(--labels-quaternary);
+
+  --surface: var(--backgrounds-primary);
+  --surface-secondary: var(--backgrounds-secondary);
+  --surface-tertiary: var(--backgrounds-tertiary);
+  --surface-grouped: var(--backgrounds-grouped-primary);
+  --surface-card: var(--backgrounds-grouped-secondary);
+
+  --fill: var(--fills-primary);
+  --fill-secondary: var(--fills-secondary);
+  --fill-tertiary: var(--fills-tertiary);
+  --fill-quaternary: var(--fills-quaternary);
+
+  --separator: var(--separators-non-opaque);
+  --separator-opaque: var(--separators-opaque);
+}

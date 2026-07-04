@@ -1,0 +1,55 @@
+/* iOS / iPadOS 26 — Typography
+   SF Pro is Apple's proprietary system typeface. We rely on the Apple system
+   font stack so real SF Pro renders on macOS/iOS (where these mockups are
+   viewed); non-Apple platforms fall back to a near-metric sans.
+   See readme.md "VISUAL FOUNDATIONS / Type" for the substitution note. */
+
+:root {
+  /* Font families */
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro", "SF Pro Text",
+    "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-system-text: var(--font-system);
+  --font-system-display: var(--font-system);
+  --font-rounded: ui-rounded, "SF Pro Rounded", "SF Compact Rounded",
+    var(--font-system);
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono",
+    "Roboto Mono", monospace;
+
+  /* Weights (SF Pro) */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-heavy: 800;
+
+  /* ---- iOS text styles (Dynamic Type — Large default) ----
+     Each: font-size / line-height / weight. */
+  --text-large-title-size: 34px;   --text-large-title-line: 41px;   --text-large-title-weight: 700;
+  --text-title1-size: 28px;        --text-title1-line: 34px;        --text-title1-weight: 400;
+  --text-title2-size: 22px;        --text-title2-line: 28px;        --text-title2-weight: 400;
+  --text-title3-size: 20px;        --text-title3-line: 25px;        --text-title3-weight: 400;
+  --text-headline-size: 17px;      --text-headline-line: 22px;      --text-headline-weight: 600;
+  --text-body-size: 17px;          --text-body-line: 22px;          --text-body-weight: 400;
+  --text-callout-size: 16px;       --text-callout-line: 21px;       --text-callout-weight: 400;
+  --text-subhead-size: 15px;       --text-subhead-line: 20px;       --text-subhead-weight: 400;
+  --text-footnote-size: 13px;      --text-footnote-line: 18px;      --text-footnote-weight: 400;
+  --text-caption1-size: 12px;      --text-caption1-line: 16px;      --text-caption1-weight: 400;
+  --text-caption2-size: 11px;      --text-caption2-line: 13px;      --text-caption2-weight: 400;
+
+  /* Letter-spacing (iOS tracking is near-zero at these sizes) */
+  --tracking-tight: -0.4px;
+  --tracking-normal: 0px;
+}
+
+/* Text-style helper classes */
+.ios-large-title { font: var(--text-large-title-weight) var(--text-large-title-size)/var(--text-large-title-line) var(--font-system); letter-spacing: var(--tracking-tight); }
+.ios-title1 { font: var(--text-title1-weight) var(--text-title1-size)/var(--text-title1-line) var(--font-system); letter-spacing: var(--tracking-tight); }
+.ios-title2 { font: var(--text-title2-weight) var(--text-title2-size)/var(--text-title2-line) var(--font-system); }
+.ios-title3 { font: var(--text-title3-weight) var(--text-title3-size)/var(--text-title3-line) var(--font-system); }
+.ios-headline { font: var(--text-headline-weight) var(--text-headline-size)/var(--text-headline-line) var(--font-system); }
+.ios-body { font: var(--text-body-weight) var(--text-body-size)/var(--text-body-line) var(--font-system); }
+.ios-callout { font: var(--text-callout-weight) var(--text-callout-size)/var(--text-callout-line) var(--font-system); }
+.ios-subhead { font: var(--text-subhead-weight) var(--text-subhead-size)/var(--text-subhead-line) var(--font-system); }
+.ios-footnote { font: var(--text-footnote-weight) var(--text-footnote-size)/var(--text-footnote-line) var(--font-system); }
+.ios-caption1 { font: var(--text-caption1-weight) var(--text-caption1-size)/var(--text-caption1-line) var(--font-system); }
+.ios-caption2 { font: var(--text-caption2-weight) var(--text-caption2-size)/var(--text-caption2-line) var(--font-system); }

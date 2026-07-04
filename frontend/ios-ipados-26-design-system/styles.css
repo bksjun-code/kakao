@@ -1,0 +1,7 @@
+/* iOS & iPadOS 26 Design System — global CSS entry point.
+   Consumers link this one file. Keep it to @import lines only. */
+
+@import "./tokens/fig-tokens.css";       /* Figma Variables: colors, kit, liquid glass (Light/Dark/AX modes) */
+@import "./tokens/typography.css";        /* SF Pro stack + iOS Dynamic Type text styles */
+@import "./tokens/spacing.css";           /* spacing, radii, control heights, shadows, semantic aliases */
+@import "./tokens/materials.css";         /* blur / vibrancy / Liquid Glass recipes */

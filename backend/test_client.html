@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>말방구 테스트 클라이언트</title>
+<style>
+  body { font-family: sans-serif; max-width: 560px; margin: 40px auto; }
+  #log { border: 1px solid #ccc; height: 280px; overflow-y: auto; padding: 8px; margin-bottom: 8px; }
+  .msg { margin: 4px 0; }
+  .mine { text-align: right; color: #333; }
+  .theirs { text-align: left; color: #06c; }
+  .msg img { max-width: 160px; display: block; margin: 4px 0; }
+  .sticker { font-size: 2em; }
+  .money { background: #fff8dc; padding: 4px 8px; border-radius: 6px; display: inline-block; }
+  input, button { padding: 6px; }
+  fieldset { margin-bottom: 12px; }
+  #stickerPicker button { font-size: 1.3em; margin: 2px; }
+</style>
+</head>
+<body>
+  <h3>말방구 - 테스트 클라이언트</h3>
+
+  <fieldset>
+    <legend>1. 로그인</legend>
+    username: <input id="username" value="alice" size="10">
+    password: <input id="password" type="password" value="pass1234" size="10">
+    <button onclick="signup()">회원가입</button>
+    <button onclick="login()">로그인</button>
+    <div id="authStatus">로그인 안됨</div>
+    <button onclick="connectPresence()">presence 연결(온라인 표시)</button>
+    <button onclick="getWallet()">내 잔액 조회</button>
+    <div id="walletStatus"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. 친구</legend>
+    friend username: <input id="friendUsername" size="10">
+    <button onclick="addFriend()">친구 추가</button>
+    <button onclick="listFriends()">친구 목록(온라인 상태 포함)</button>
+    <div id="friendList"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. 방 만들기 / 목록</legend>
+    이름(선택): <input id="newRoomName" size="10" placeholder="예: 우리팀방">
+    멤버 user_ids(콤마): <input id="newRoomUserIds" size="10" placeholder="예: 2,3">
+    <button onclick="createRoom()">방 만들기</button>
+    <button onclick="listRooms()">내 방 목록(안읽음 개수 포함)</button>
+    <div id="roomList"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. 채팅</legend>
+    room_id: <input id="roomId" value="1" size="3">
+    <button onclick="connect()">연결</button>
+    <button onclick="markRead()">읽음 처리</button>
+    <div id="log"></div>
+    <input id="content" placeholder="메시지 입력" size="24">
+    <button onclick="send()">보내기</button>
+    <br><br>
+    파일 첨부: <input id="fileInput" type="file">
+    <button onclick="sendFile()">파일 전송</button>
+    <br><br>
+    스티커: <div id="stickerPicker"></div>
+    <br>
+    송금 대상 user_id: <input id="moneyRecipient" size="4">
+    금액: <input id="moneyAmount" size="8" value="1000">
+    <button onclick="sendMoney()">송금</button>
+  </fieldset>
+
+<script>
+const API = 'http://localhost:8000';
+let token = null;
+let myUserId = null;
+let ws;
+let presenceWs;
+
+async function signup() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const res = await fetch(`${API}/auth/signup`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username, password})
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(JSON.stringify(data));
+  setAuth(data);
+}
+
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+  const res = await fetch(`${API}/auth/login`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username, password})
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(JSON.stringify(data));
+  setAuth(data);
+}
+
+function setAuth(data) {
+  token = data.access_token;
+  myUserId = data.user.id;
+  document.getElementById('authStatus').textContent =
+    `로그인됨: ${data.user.username} (id=${myUserId})`;
+  loadStickers();
+}
+
+function authHeaders() {
+  return {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`};
+}
+
+function connectPresence() {
+  presenceWs = new WebSocket(`ws://localhost:8000/ws/presence?token=${token}`);
+  presenceWs.onopen = () => alert('presence 연결됨 (온라인 상태로 표시됩니다)');
+}
+
+async function getWallet() {
+  const res = await fetch(`${API}/wallet/me`, {headers: authHeaders()});
+  const data = await res.json();
+  document.getElementById('walletStatus').textContent = `잔액: ${data.balance}원`;
+}
+
+async function addFriend() {
+  const username = document.getElementById('friendUsername').value;
+  const res = await fetch(`${API}/friends`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify({username})
+  });
+  const data = await res.json();
+  alert(JSON.stringify(data));
+}
+
+async function listFriends() {
+  const res = await fetch(`${API}/friends`, {headers: authHeaders()});
+  const data = await res.json();
+  document.getElementById('friendList').textContent = JSON.stringify(data);
+}
+
+async function createRoom() {
+  const name = document.getElementById('newRoomName').value || null;
+  const idsRaw = document.getElementById('newRoomUserIds').value;
+  const user_ids = idsRaw.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+  const res = await fetch(`${API}/rooms`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify({user_ids, name})
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(JSON.stringify(data));
+  document.getElementById('roomId').value = data.id;
+  alert('방 생성됨: ' + JSON.stringify(data));
+}
+
+async function listRooms() {
+  const res = await fetch(`${API}/rooms`, {headers: authHeaders()});
+  const data = await res.json();
+  document.getElementById('roomList').textContent = JSON.stringify(data);
+}
+
+async function markRead() {
+  const roomId = document.getElementById('roomId').value;
+  await fetch(`${API}/rooms/${roomId}/read`, {method: 'POST', headers: authHeaders()});
+  alert('읽음 처리 완료');
+}
+
+async function loadStickers() {
+  const res = await fetch(`${API}/stickers`);
+  const stickers = await res.json();
+  const picker = document.getElementById('stickerPicker');
+  picker.innerHTML = '';
+  stickers.forEach(s => {
+    const btn = document.createElement('button');
+    btn.textContent = s.emoji;
+    btn.title = s.name;
+    btn.onclick = () => ws.send(JSON.stringify({type: 'message', message_type: 'sticker', sticker_id: s.id}));
+    picker.appendChild(btn);
+  });
+}
+
+function connect() {
+  const roomId = document.getElementById('roomId').value;
+  ws = new WebSocket(`ws://localhost:8000/ws/${roomId}?token=${token}`);
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    const log = document.getElementById('log');
+    const div = document.createElement('div');
+    if (data.type === 'error') {
+      alert('에러: ' + data.message);
+      return;
+    }
+    if (data.type === 'message') {
+      div.className = 'msg ' + (data.sender_id === myUserId ? 'mine' : 'theirs');
+      if (data.message_type === 'image') {
+        div.innerHTML = `[${data.sender_id}] <img src="${API}${data.file_url}">`;
+      } else if (data.message_type === 'file') {
+        div.innerHTML = `[${data.sender_id}] <a href="${API}${data.file_url}" target="_blank">${data.file_name}</a>`;
+      } else if (data.message_type === 'sticker') {
+        div.innerHTML = `[${data.sender_id}] <span class="sticker">${data.sticker.emoji}</span>`;
+      } else if (data.message_type === 'money') {
+        div.innerHTML = `[${data.sender_id}] <span class="money">💸 ${data.amount}원 → user ${data.recipient_id}</span>`;
+      } else {
+        div.textContent = `[${data.sender_id}] ${data.content}`;
+      }
+      div.onclick = () => ws.send(JSON.stringify({type: 'read', message_id: data.id}));
+    } else if (data.type === 'read') {
+      div.className = 'msg';
+      div.style.fontSize = '0.8em';
+      div.style.color = '#999';
+      div.textContent = `(읽음: message ${data.message_id})`;
+    }
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  };
+  ws.onopen = () => alert('연결됨');
+  ws.onclose = (e) => alert('연결 종료: ' + e.code);
+}
+
+function send() {
+  const content = document.getElementById('content').value;
+  ws.send(JSON.stringify({type: 'message', message_type: 'text', content}));
+  document.getElementById('content').value = '';
+}
+
+async function sendFile() {
+  const fileInput = document.getElementById('fileInput');
+  const file = fileInput.files[0];
+  if (!file) return alert('파일을 선택하세요');
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API}/upload`, {
+    method: 'POST', headers: {'Authorization': `Bearer ${token}`}, body: formData
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(JSON.stringify(data));
+  const isImage = /\.(png|jpe?g|gif|webp)$/i.test(data.file_name);
+  ws.send(JSON.stringify({
+    type: 'message', message_type: isImage ? 'image' : 'file',
+    file_url: data.file_url, file_name: data.file_name
+  }));
+}
+
+function sendMoney() {
+  const recipient_id = parseInt(document.getElementById('moneyRecipient').value);
+  const amount = parseInt(document.getElementById('moneyAmount').value);
+  ws.send(JSON.stringify({type: 'message', message_type: 'money', recipient_id, amount}));
+}
+</script>
+</body>
+</html>
