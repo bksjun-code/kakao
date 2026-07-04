@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
 
 class ApiError extends Error {
   constructor(status, detail) {
@@ -66,7 +66,8 @@ export const api = {
 };
 
 export function wsUrl(path, token) {
-  return `ws://localhost:8000${path}?token=${encodeURIComponent(token)}`;
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}${path}?token=${encodeURIComponent(token)}`;
 }
 
 export { API_BASE, ApiError };
