@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../api";
+import { api, resolveImageUrl } from "../api";
 import NewRoomDialog from "../components/NewRoomDialog";
 import SettingsSheet from "../components/SettingsSheet";
 import { Icon } from "../components/Icon";
@@ -44,6 +44,24 @@ export default function HomePage() {
     if (room.name) return room.name;
     const others = room.members.filter((m) => m.id !== user.id);
     return others.map((m) => displayName(m)).join(", ") || "나";
+  };
+
+  const formatLastMessageTime = (isoString) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    const now = new Date();
+    const isSameDay = date.toDateString() === now.toDateString();
+    if (isSameDay) {
+      let hours = date.getHours();
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const period = hours < 12 ? "오전" : "오후";
+      hours = hours % 12 || 12;
+      return `${period} ${String(hours).padStart(2, "0")}:${minutes}`;
+    }
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) return "어제";
+    return `${date.getMonth() + 1}월 ${date.getDate()}일`;
   };
 
   return (
@@ -90,9 +108,29 @@ export default function HomePage() {
               className={`list-row${i === rooms.length - 1 ? " list-row-last" : ""}`}
               onClick={() => navigate(`/rooms/${room.id}`)}
             >
-              <span className="list-row-title">{roomLabel(room)}</span>
-              {room.is_group && <span className="badge-group">그룹</span>}
-              {room.unread_count > 0 && <span className="badge-unread">{room.unread_count}</span>}
+              <div className="list-row-avatar">
+                {room.creator?.profile_image_url ? (
+                  <img src={resolveImageUrl(room.creator.profile_image_url)} alt="" />
+                ) : (
+                  <Icon name="person.crop.circle" size={22} color="var(--text-tertiary)" />
+                )}
+              </div>
+              <div className="list-row-content">
+                <div className="list-row-top">
+                  <span className="list-row-title">
+                    {roomLabel(room)}
+                    {room.is_group && (
+                      <span className="list-row-member-count">({room.members.length}명)</span>
+                    )}
+                  </span>
+                  {room.is_group && <span className="badge-group">그룹</span>}
+                  <span className="list-row-time">{formatLastMessageTime(room.last_message_at)}</span>
+                </div>
+                <div className="list-row-bottom">
+                  <span className="list-row-preview">{room.last_message || "대화를 시작해보세요"}</span>
+                  {room.unread_count > 0 && <span className="badge-unread">{room.unread_count}</span>}
+                </div>
+              </div>
               <Icon name="chevron.right.small" size={18} color="var(--text-tertiary)" />
             </div>
           ))}

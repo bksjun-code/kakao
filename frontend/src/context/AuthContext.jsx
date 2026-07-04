@@ -36,9 +36,15 @@ export function AuthProvider({ children }) {
     const updated = await api.updateNickname(token, nickname);
     setUser(updated);
   };
+  const updateProfileImage = async (profileImageUrl) => {
+    const updated = await api.updateProfileImage(token, profileImageUrl);
+    setUser(updated);
+  };
 
   return (
-    <AuthContext.Provider value={{ token, user, signup, login, logout, updateNickname }}>
+    <AuthContext.Provider
+      value={{ token, user, signup, login, logout, updateNickname, updateProfileImage }}
+    >
       {children}
     </AuthContext.Provider>
   );

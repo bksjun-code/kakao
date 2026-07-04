@@ -241,9 +241,20 @@ input:focus, select:focus {
   white-space: nowrap;
 }
 
-.leave-button {
+.chat-header-actions {
   position: absolute;
-  right: var(--space-4);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.invite-button {
+  font-size: var(--text-subhead-size);
+  color: var(--tint);
+}
+
+.leave-button {
   font-size: var(--text-subhead-size);
   color: var(--tint-destructive);
 }
@@ -332,6 +343,60 @@ input:focus, select:focus {
   white-space: nowrap;
 }
 
+.list-row-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.list-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.list-row-member-count {
+  flex: none;
+  font-size: var(--text-footnote-size);
+  color: var(--text-tertiary);
+}
+.list-row-time {
+  flex: none;
+  font-size: var(--text-caption1-size);
+  color: var(--text-tertiary);
+}
+.list-row-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.list-row-preview {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-subhead-size);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-row-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fill-tertiary);
+}
+.list-row-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .presence-dot {
   width: 10px;
   height: 10px;
@@ -384,6 +449,9 @@ input:focus, select:focus {
 .chat-header .nav-bar-row {
   padding: 0 var(--space-3);
 }
+.chat-header .nav-bar-title {
+  max-width: 38%;
+}
 
 
 .system-message {
@@ -405,27 +473,90 @@ input:focus, select:focus {
   background: var(--surface);
 }
 
-.message-row {
+.date-divider {
+  align-self: center;
+  color: var(--text-secondary);
+  font-size: var(--text-caption1-size);
+  background: var(--fill-tertiary);
+  border-radius: var(--radius-capsule);
+  padding: 4px 14px;
+}
+
+.message-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 88%;
+}
+.message-group.mine {
+  align-self: flex-end;
+}
+.message-group.theirs {
+  align-self: flex-start;
+}
+
+.group-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fill-tertiary);
+}
+.group-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.group-content {
   display: flex;
   flex-direction: column;
-  max-width: 75%;
+  gap: 4px;
+  min-width: 0;
 }
-.message-row.mine {
-  align-self: flex-end;
+.message-group.mine .group-content {
   align-items: flex-end;
 }
-.message-row.theirs {
-  align-self: flex-start;
+.message-group.theirs .group-content {
   align-items: flex-start;
 }
 
-.message-sender {
+.group-sender-name {
   font-size: var(--text-caption1-size);
   color: var(--text-secondary);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
+}
+
+.bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.bubble-meta {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  white-space: nowrap;
+}
+.message-group.mine .bubble-meta {
+  align-items: flex-end;
+}
+.message-group.theirs .bubble-meta {
+  align-items: flex-start;
+}
+
+.bubble-time {
+  font-size: var(--text-caption2-size);
+  color: var(--text-tertiary);
 }
 
 .message-bubble {
+  max-width: min(66vw, 300px);
   padding: 9px var(--space-4);
   border-radius: 18px;
   word-break: break-word;
@@ -488,7 +619,6 @@ input:focus, select:focus {
 .read-marker {
   font-size: var(--text-caption2-size);
   color: var(--text-tertiary);
-  margin-top: 2px;
 }
 
 .composer {
@@ -649,6 +779,68 @@ input:focus, select:focus {
   font-weight: var(--weight-semibold);
 }
 
+.crop-card {
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(250,250,250,0.92);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: var(--shadow-popover);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+:root[data-theme="dark"] .crop-card {
+  background: rgba(40,40,42,0.92);
+}
+.crop-title {
+  font: var(--weight-semibold) var(--text-body-size)/var(--text-body-line) var(--font-system);
+  color: var(--text-primary);
+}
+.crop-viewport {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #000;
+  touch-action: none;
+  cursor: grab;
+}
+.crop-viewport:active {
+  cursor: grabbing;
+}
+.crop-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  user-select: none;
+  max-width: none;
+}
+.crop-circle-guide {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.9), 0 0 0 9999px rgba(0,0,0,0.45);
+  pointer-events: none;
+}
+.crop-zoom-slider {
+  width: 100%;
+}
+.crop-actions {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+}
+.crop-action-btn {
+  flex: 1;
+}
+
 /* --- Sheet (new room dialog) --- */
 .sheet-overlay {
   position: fixed;
@@ -785,6 +977,51 @@ input:focus, select:focus {
   padding: 15%;
   box-sizing: border-box;
   border-radius: inherit;
+}
+
+.profile-photo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+.profile-photo-preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: none;
+  box-shadow: inset 0 0 0 var(--hairline) var(--separator);
+}
+.profile-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--fill-tertiary);
+}
+.profile-photo-pick {
+  cursor: pointer;
+}
+.avatar-template-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 var(--hairline) var(--separator);
+}
+.avatar-template-swatch img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .color-field-row {

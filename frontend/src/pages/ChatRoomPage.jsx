@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { api, wsUrl, API_BASE } from "../api";
+import { api, wsUrl, API_BASE, resolveImageUrl } from "../api";
 import ConfirmDialog from "../components/ConfirmDialog";
+import InviteMemberDialog from "../components/InviteMemberDialog";
 import { Icon } from "../components/Icon";
 import { Button } from "../components/Button";
 import { useAppearance, BUBBLE_SHAPES } from "../context/AppearanceContext";
@@ -24,6 +25,7 @@ export default function ChatRoomPage() {
   const [moneyAmount, setMoneyAmount] = useState("");
   const [error, setError] = useState(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [moneyError, setMoneyError] = useState(null);
 
@@ -148,8 +150,9 @@ export default function ChatRoomPage() {
     return others.map((m) => displayName(m)).join(", ") || "나";
   };
 
+  const memberOf = (userId) => room?.members.find((m) => m.id === userId);
   const usernameOf = (userId) => {
-    const member = room?.members.find((m) => m.id === userId);
+    const member = memberOf(userId);
     return member ? displayName(member) : userId;
   };
 
@@ -164,6 +167,12 @@ export default function ChatRoomPage() {
     }
   };
 
+  const handleInvite = async (userIds) => {
+    const updatedRoom = await api.addRoomMembers(token, roomId, userIds);
+    setRoom(updatedRoom);
+    setShowInvite(false);
+  };
+
   return (
     <div className="chat-screen">
       <div className="nav-bar chat-header">
@@ -173,9 +182,20 @@ export default function ChatRoomPage() {
             목록
           </button>
           <span className="nav-bar-title">{roomLabel()}</span>
-          <button className="leave-button" onClick={() => setShowLeaveConfirm(true)}>방 나가기</button>
+          <div className="chat-header-actions">
+            <button className="invite-button" onClick={() => setShowInvite(true)}>초대</button>
+            <button className="leave-button" onClick={() => setShowLeaveConfirm(true)}>방 나가기</button>
+          </div>
         </div>
       </div>
+
+      <InviteMemberDialog
+        open={showInvite}
+        token={token}
+        existingMemberIds={room?.members.map((m) => m.id) ?? []}
+        onInvite={handleInvite}
+        onCancel={() => setShowInvite(false)}
+      />
 
       <ConfirmDialog
         open={showLeaveConfirm}
@@ -197,19 +217,32 @@ export default function ChatRoomPage() {
       {error && <div className="error-text">{error}</div>}
 
       <div className="message-log" style={messageLogStyle(chatBackground)}>
-        {messages.map((m) =>
-          m.message_type === "system" ? (
-            <div key={m.id} className="system-message">{m.content}</div>
-          ) : (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              isMine={m.sender_id === user.id}
+        {groupMessages(messages, user.id).map((item) => {
+          if (item.type === "date-divider") {
+            return (
+              <div key={`date-${item.date}`} className="date-divider">
+                <span>{formatDateDivider(item.date)}</span>
+              </div>
+            );
+          }
+          if (item.type === "system") {
+            return (
+              <div key={item.message.id} className="system-message">
+                {item.message.content}
+              </div>
+            );
+          }
+          return (
+            <MessageGroup
+              key={item.messages[0].id}
+              messages={item.messages}
+              isMine={item.isMine}
               usernameOf={usernameOf}
+              memberOf={memberOf}
               bubble={bubble}
             />
-          )
-        )}
+          );
+        })}
         <div ref={logEndRef} />
       </div>
 
@@ -304,6 +337,101 @@ function linkify(text) {
   );
 }
 
+const GROUP_GAP_MS = 5 * 60 * 1000;
+const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+// Splits a flat message list into date-divider / system / grouped-message items:
+// consecutive messages from the same sender (within GROUP_GAP_MS of each other)
+// share one avatar+name header, matching the reference chat layout.
+function groupMessages(messages, myUserId) {
+  const items = [];
+  let lastDateKey = null;
+  let currentGroup = null;
+
+  for (const m of messages) {
+    const date = new Date(m.created_at);
+    const dateKey = date.toDateString();
+    if (dateKey !== lastDateKey) {
+      items.push({ type: "date-divider", date: m.created_at });
+      lastDateKey = dateKey;
+      currentGroup = null;
+    }
+
+    if (m.message_type === "system") {
+      items.push({ type: "system", message: m });
+      currentGroup = null;
+      continue;
+    }
+
+    const isMine = m.sender_id === myUserId;
+    const lastInGroup = currentGroup?.messages[currentGroup.messages.length - 1];
+    const canJoin =
+      currentGroup &&
+      currentGroup.isMine === isMine &&
+      currentGroup.senderId === m.sender_id &&
+      date - new Date(lastInGroup.created_at) < GROUP_GAP_MS;
+
+    if (canJoin) {
+      currentGroup.messages.push(m);
+    } else {
+      currentGroup = { type: "group", isMine, senderId: m.sender_id, messages: [m] };
+      items.push(currentGroup);
+    }
+  }
+  return items;
+}
+
+function formatDateDivider(isoString) {
+  const date = new Date(isoString);
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 ${KOREAN_WEEKDAYS[date.getDay()]}요일`;
+}
+
+function formatBubbleTime(isoString) {
+  const date = new Date(isoString);
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const period = hours < 12 ? "오전" : "오후";
+  hours = hours % 12 || 12;
+  return `${period} ${hours}:${minutes}`;
+}
+
+function MessageGroup({ messages, isMine, usernameOf, memberOf, bubble }) {
+  const sender = !isMine ? memberOf(messages[0].sender_id) : null;
+  const lastIndex = messages.length - 1;
+
+  return (
+    <div className={`message-group ${isMine ? "mine" : "theirs"}`}>
+      {!isMine && (
+        <div className="group-avatar">
+          {sender?.profile_image_url ? (
+            <img src={resolveImageUrl(sender.profile_image_url)} alt="" />
+          ) : (
+            <Icon name="person.crop.circle" size={22} color="var(--text-tertiary)" />
+          )}
+        </div>
+      )}
+      <div className="group-content">
+        {!isMine && <div className="group-sender-name">{usernameOf(messages[0].sender_id)}</div>}
+        {messages.map((message, idx) => {
+          const meta = idx === lastIndex && (
+            <div className="bubble-meta">
+              {isMine && message.read_at && <div className="read-marker">읽음</div>}
+              <span className="bubble-time">{formatBubbleTime(message.created_at)}</span>
+            </div>
+          );
+          return (
+            <div className="bubble-row" key={message.id}>
+              {isMine && meta}
+              <MessageBubble message={message} isMine={isMine} usernameOf={usernameOf} bubble={bubble} />
+              {!isMine && meta}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ message, isMine, usernameOf, bubble }) {
   const shape = BUBBLE_SHAPES[bubble.shape] || BUBBLE_SHAPES.rounded;
   const bubbleStyle = {
@@ -319,35 +447,31 @@ function MessageBubble({ message, isMine, usernameOf, bubble }) {
   };
 
   return (
-    <div className={`message-row ${isMine ? "mine" : "theirs"}`}>
-      {!isMine && <div className="message-sender">{usernameOf(message.sender_id)}</div>}
-      <div
-        className={`message-bubble${message.message_type === "image" ? " message-bubble-image" : ""}${message.message_type === "sticker" && message.sticker?.image_url ? " message-bubble-sticker" : ""}`}
-        style={bubbleStyle}
-      >
-        {message.message_type === "text" && linkify(message.content)}
-        {message.message_type === "image" && (
-          <img className="message-image" src={`${API_BASE}${message.file_url}`} alt={message.file_name} />
-        )}
-        {message.message_type === "file" && (
-          <a href={`${API_BASE}${message.file_url}`} target="_blank" rel="noreferrer">
-            📄 {message.file_name}
-          </a>
-        )}
-        {message.message_type === "sticker" && (
-          message.sticker?.image_url ? (
-            <img src={message.sticker.image_url} alt={message.sticker.name} className="message-sticker-image" />
-          ) : (
-            <span className="message-sticker">{message.sticker?.emoji}</span>
-          )
-        )}
-        {message.message_type === "money" && (
-          <span className="message-money">
-            💸 {message.amount?.toLocaleString()}원 → {usernameOf(message.recipient_id)}
-          </span>
-        )}
-      </div>
-      {isMine && message.read_at && <div className="read-marker">읽음</div>}
+    <div
+      className={`message-bubble${message.message_type === "image" ? " message-bubble-image" : ""}${message.message_type === "sticker" && message.sticker?.image_url ? " message-bubble-sticker" : ""}`}
+      style={bubbleStyle}
+    >
+      {message.message_type === "text" && linkify(message.content)}
+      {message.message_type === "image" && (
+        <img className="message-image" src={`${API_BASE}${message.file_url}`} alt={message.file_name} />
+      )}
+      {message.message_type === "file" && (
+        <a href={`${API_BASE}${message.file_url}`} target="_blank" rel="noreferrer">
+          📄 {message.file_name}
+        </a>
+      )}
+      {message.message_type === "sticker" && (
+        message.sticker?.image_url ? (
+          <img src={message.sticker.image_url} alt={message.sticker.name} className="message-sticker-image" />
+        ) : (
+          <span className="message-sticker">{message.sticker?.emoji}</span>
+        )
+      )}
+      {message.message_type === "money" && (
+        <span className="message-money">
+          💸 {message.amount?.toLocaleString()}원 → {usernameOf(message.recipient_id)}
+        </span>
+      )}
     </div>
   );
 }

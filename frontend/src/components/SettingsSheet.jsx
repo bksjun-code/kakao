@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useAppearance } from "../context/AppearanceContext";
 import { getThemeMode, setThemeMode } from "../theme";
-import { api } from "../api";
+import { api, resolveImageUrl } from "../api";
 import { Button } from "./Button";
+import ImageCropDialog from "./ImageCropDialog";
 
 const BG_PRESETS = [
   { label: "기본", value: null },
@@ -20,14 +21,20 @@ const SHAPE_OPTIONS = [
   { label: "알약형", value: "pill" },
 ];
 
+const AVATAR_TEMPLATES = [
+  { label: "남자", value: "/avatars/avatar_male.svg" },
+  { label: "여자", value: "/avatars/avatar_female.svg" },
+];
+
 export default function SettingsSheet({ open, onClose }) {
-  const { token, user, updateNickname } = useAuth();
+  const { token, user, updateNickname, updateProfileImage } = useAuth();
   const { chatBackground, setChatBackground, bubble, setBubble, reset } = useAppearance();
 
   const [themeMode, setThemeModeState] = useState(getThemeMode());
   const [nickname, setNickname] = useState(user?.nickname || "");
   const [nicknameStatus, setNicknameStatus] = useState(null);
   const [error, setError] = useState(null);
+  const [cropSource, setCropSource] = useState(null);
 
   if (!open) return null;
 
@@ -47,6 +54,38 @@ export default function SettingsSheet({ open, onClose }) {
     }
   };
 
+  const handleProfilePhoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setCropSource(URL.createObjectURL(file));
+    e.target.value = "";
+  };
+
+  const closeCrop = () => {
+    if (cropSource) URL.revokeObjectURL(cropSource);
+    setCropSource(null);
+  };
+
+  const handleCropConfirm = async (blob) => {
+    try {
+      const croppedFile = new File([blob], "profile.png", { type: "image/png" });
+      const uploaded = await api.upload(token, croppedFile);
+      await updateProfileImage(uploaded.file_url);
+    } catch (err) {
+      setError(err.detail || err.message);
+    } finally {
+      closeCrop();
+    }
+  };
+
+  const handleAvatarTemplate = async (value) => {
+    try {
+      await updateProfileImage(value);
+    } catch (err) {
+      setError(err.detail || err.message);
+    }
+  };
+
   const handleBackgroundImage = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -61,8 +100,9 @@ export default function SettingsSheet({ open, onClose }) {
   };
 
   return (
-    <div className="sheet-overlay" onClick={onClose}>
-      <div className="sheet-card" onClick={(e) => e.stopPropagation()}>
+    <>
+      <div className="sheet-overlay" onClick={onClose}>
+        <div className="sheet-card" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grabber-row">
           <span className="sheet-grabber" />
         </div>
@@ -70,6 +110,33 @@ export default function SettingsSheet({ open, onClose }) {
 
         <div className="sheet-body">
           {error && <div className="error-text">{error}</div>}
+
+          <p className="field-label-plain">프로필 사진</p>
+          <div className="profile-photo-row">
+            <div className="profile-photo-preview">
+              {user?.profile_image_url ? (
+                <img src={resolveImageUrl(user.profile_image_url)} alt="프로필 사진" />
+              ) : (
+                <div className="profile-photo-placeholder" />
+              )}
+            </div>
+            <label className="link-button profile-photo-pick">
+              <input type="file" accept="image/*" hidden onChange={handleProfilePhoto} />
+              사진 선택
+            </label>
+          </div>
+          <div className="swatch-row">
+            {AVATAR_TEMPLATES.map((tpl) => (
+              <button
+                key={tpl.value}
+                className={`avatar-template-swatch${user?.profile_image_url === tpl.value ? " swatch-active" : ""}`}
+                title={tpl.label}
+                onClick={() => handleAvatarTemplate(tpl.value)}
+              >
+                <img src={tpl.value} alt={tpl.label} />
+              </button>
+            ))}
+          </div>
 
           <p className="field-label-plain">테마</p>
           <div className="segmented">
@@ -175,6 +242,14 @@ export default function SettingsSheet({ open, onClose }) {
           <Button block onClick={onClose}>닫기</Button>
         </div>
       </div>
-    </div>
+      </div>
+
+      <ImageCropDialog
+        open={!!cropSource}
+        imageUrl={cropSource}
+        onCancel={closeCrop}
+        onConfirm={handleCropConfirm}
+      />
+    </>
   );
 }

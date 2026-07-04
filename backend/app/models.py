@@ -22,6 +22,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     nickname = Column(String, nullable=True)
+    profile_image_url = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
     security_question = Column(String, nullable=False)
     security_answer_hash = Column(String, nullable=False)
@@ -46,6 +47,7 @@ class ChatRoom(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=True)
     is_group = Column(Boolean, default=False)
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     members = relationship("RoomMember", back_populates="room")

@@ -35,11 +35,19 @@ def _migrate_add_missing_columns():
     if "nickname" not in users_columns:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN nickname VARCHAR"))
+    if "profile_image_url" not in users_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN profile_image_url VARCHAR"))
 
     stickers_columns = {c["name"] for c in inspector.get_columns("stickers")}
     if "image_url" not in stickers_columns:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE stickers ADD COLUMN image_url VARCHAR"))
+
+    chat_rooms_columns = {c["name"] for c in inspector.get_columns("chat_rooms")}
+    if "creator_id" not in chat_rooms_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE chat_rooms ADD COLUMN creator_id INTEGER"))
 
 
 _migrate_add_missing_columns()
@@ -99,17 +107,60 @@ def _unread_count(db: Session, room_id: int, member: models.RoomMember) -> int:
     return query.count()
 
 
+_MESSAGE_PREVIEW_LABELS = {
+    "image": "사진을 보냈습니다",
+    "file": "파일을 보냈습니다",
+    "sticker": "이모티콘을 보냈습니다",
+}
+
+
+def _message_preview_text(msg: models.Message) -> str:
+    if msg.message_type == "text":
+        return msg.content or ""
+    if msg.message_type == "money":
+        return f"{(msg.amount or 0):,}원을 보냈습니다"
+    if msg.message_type == "system":
+        return msg.content or ""
+    return _MESSAGE_PREVIEW_LABELS.get(msg.message_type, "")
+
+
 def _room_to_out(db: Session, room: models.ChatRoom, current_user_id: int) -> schemas.RoomOut:
     unread = 0
     member = next((m for m in room.members if m.user_id == current_user_id), None)
     if member is not None:
         unread = _unread_count(db, room.id, member)
+
+    creator = None
+    if room.creator_id is not None:
+        creator_member = next((m for m in room.members if m.user_id == room.creator_id), None)
+        creator_user = creator_member.user if creator_member else db.get(models.User, room.creator_id)
+        if creator_user is not None:
+            creator = schemas.UserOut.model_validate(creator_user)
+
+    last_msg = (
+        db.query(models.Message)
+        .filter(models.Message.room_id == room.id)
+        .order_by(models.Message.id.desc())
+        .first()
+    )
+    last_message_at = None
+    if last_msg is not None:
+        last_message_at = last_msg.created_at
+        if last_message_at.tzinfo is None:
+            # SQLite stores DateTime(timezone=True) values without an offset,
+            # but func.now() writes UTC — tag it explicitly so the JSON
+            # serialization includes a UTC marker the browser can parse correctly.
+            last_message_at = last_message_at.replace(tzinfo=timezone.utc)
+
     return schemas.RoomOut(
         id=room.id,
         name=room.name,
         is_group=room.is_group,
         members=[schemas.UserOut.model_validate(m.user) for m in room.members],
+        creator=creator,
         unread_count=unread,
+        last_message=_message_preview_text(last_msg) if last_msg else None,
+        last_message_at=last_message_at,
     )
 
 
@@ -183,16 +234,20 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 
 @app.patch("/users/me", response_model=schemas.UserOut)
 def update_me(
-    payload: schemas.NicknameUpdate,
+    payload: schemas.ProfileUpdate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    nickname = payload.nickname.strip()
-    if not nickname:
-        raise HTTPException(400, "nickname must not be empty")
-    if len(nickname) > 20:
-        raise HTTPException(400, "nickname must be 20 characters or fewer")
-    current_user.nickname = nickname
+    fields = payload.model_dump(exclude_unset=True)
+    if "nickname" in fields:
+        nickname = (fields["nickname"] or "").strip()
+        if not nickname:
+            raise HTTPException(400, "nickname must not be empty")
+        if len(nickname) > 20:
+            raise HTTPException(400, "nickname must be 20 characters or fewer")
+        current_user.nickname = nickname
+    if "profile_image_url" in fields:
+        current_user.profile_image_url = fields["profile_image_url"]
     db.commit()
     db.refresh(current_user)
     return current_user
@@ -205,7 +260,11 @@ def list_users(
     users = db.query(models.User).filter(models.User.id != current_user.id).all()
     return [
         schemas.UserListItem(
-            id=u.id, username=u.username, nickname=u.nickname, is_online=manager.is_online(u.id)
+            id=u.id,
+            username=u.username,
+            nickname=u.nickname,
+            profile_image_url=u.profile_image_url,
+            is_online=manager.is_online(u.id),
         )
         for u in users
     ]
@@ -225,7 +284,7 @@ def create_room(
     if len(users) != len(member_ids):
         raise HTTPException(404, "one or more users not found")
 
-    db_room = models.ChatRoom(name=room.name, is_group=len(member_ids) > 2)
+    db_room = models.ChatRoom(name=room.name, is_group=len(member_ids) > 2, creator_id=current_user.id)
     db.add(db_room)
     db.flush()
     for user_id in member_ids:
@@ -249,7 +308,7 @@ def list_my_rooms(
 
 
 @app.post("/rooms/{room_id}/members", response_model=schemas.RoomOut)
-def add_room_members(
+async def add_room_members(
     room_id: int,
     payload: schemas.RoomMembersAdd,
     db: Session = Depends(get_db),
@@ -271,6 +330,18 @@ def add_room_members(
         room.is_group = True
         db.commit()
         db.refresh(room)
+
+        invited_names = ", ".join(u.username for u in users)
+        system_msg = models.Message(
+            room_id=room_id,
+            sender_id=current_user.id,
+            message_type="system",
+            content=f"{invited_names}님을 초대했습니다",
+        )
+        db.add(system_msg)
+        db.commit()
+        db.refresh(system_msg)
+        await manager.broadcast(room_id, _message_broadcast_payload(system_msg))
     return _room_to_out(db, room, current_user.id)
 
 
@@ -367,6 +438,14 @@ async def upload_file(
     return schemas.UploadOut(file_url=f"/uploads/{stored_name}", file_name=file.filename)
 
 
+def _iso_utc(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
 def _message_broadcast_payload(msg: models.Message) -> dict:
     sticker = msg.sticker
     return {
@@ -385,8 +464,8 @@ def _message_broadcast_payload(msg: models.Message) -> dict:
         ),
         "amount": msg.amount,
         "recipient_id": msg.recipient_id,
-        "created_at": msg.created_at.isoformat(),
-        "read_at": None,
+        "created_at": _iso_utc(msg.created_at),
+        "read_at": _iso_utc(msg.read_at),
     }
 
 
