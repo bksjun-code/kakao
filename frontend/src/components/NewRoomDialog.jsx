@@ -46,11 +46,13 @@ export default function NewRoomDialog({ open, token, onCreate, onCancel }) {
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.username.toLowerCase().includes(search.trim().toLowerCase()) ||
-      (u.nickname || "").toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filteredUsers = users
+    .filter(
+      (u) =>
+        u.username.toLowerCase().includes(search.trim().toLowerCase()) ||
+        (u.nickname || "").toLowerCase().includes(search.trim().toLowerCase())
+    )
+    .sort((a, b) => displayName(a).localeCompare(displayName(b), "ko"));
 
   return (
     <div className="sheet-overlay" onClick={close}>

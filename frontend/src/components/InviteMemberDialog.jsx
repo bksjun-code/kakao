@@ -44,11 +44,13 @@ export default function InviteMemberDialog({ open, token, existingMemberIds, onI
   };
 
   const candidates = users.filter((u) => !existingMemberIds.includes(u.id));
-  const filteredUsers = candidates.filter(
-    (u) =>
-      u.username.toLowerCase().includes(search.trim().toLowerCase()) ||
-      (u.nickname || "").toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filteredUsers = candidates
+    .filter(
+      (u) =>
+        u.username.toLowerCase().includes(search.trim().toLowerCase()) ||
+        (u.nickname || "").toLowerCase().includes(search.trim().toLowerCase())
+    )
+    .sort((a, b) => displayName(a).localeCompare(displayName(b), "ko"));
 
   return (
     <div className="sheet-overlay" onClick={close}>
